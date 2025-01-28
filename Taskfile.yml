@@ -1,0 +1,109 @@
+version: "3"
+
+env:
+  STATIC_DIR: "web/static"
+  BUILD_DIR: ".build"
+  BIN_DIR: ".build/bin"
+
+tasks:
+  clean:
+    cmds:
+      - rm -rf $BUILD_DIR
+      - rm -rf $STATIC_DIR/index.css
+      - rm -rf $STATIC_DIR/index.js
+      - rm -rf node_modules
+      - rm -rf tmp
+
+  tools:
+    cmds:
+      - pnpm install
+
+  # Build tasks for production
+  build:templ:
+    deps: [tools]
+    cmds:
+      - go run github.com/a-h/templ/cmd/templ@v0.3.819 generate -v
+
+  build:styles:
+    deps: [tools]
+    cmds:
+      - pnpm exec tailwindcss -c tailwind.config.js -i web/styles/styles.css -o $STATIC_DIR/index.css
+
+  build:esbuild:
+    deps: [tools]
+    cmds:
+      - mkdir -p $STATIC_DIR
+      - pnpm exec esbuild web/libs/datastar/index.ts --bundle --outdir=$STATIC_DIR --format=esm
+
+  build:
+    deps:
+      - tools
+      - build:styles
+      - build:templ
+      - build:esbuild
+    cmds:
+      - go build -o $BIN_DIR/main .
+
+  # Debug task
+  debug:
+    deps: [build]
+    cmds:
+      - go run github.com/go-delve/delve/cmd/dlv@v1.23.1 exec $BIN_DIR/main
+
+  # Live development tasks
+  live:templ:
+    deps: [tools]
+    cmds:
+      - go run github.com/a-h/templ/cmd/templ@v0.3.819 generate --watch --proxy="http://localhost:8080" --open-browser=false -v
+
+  live:styles:
+    deps: [tools]
+    cmds:
+      - pnpm exec tailwindcss -c tailwind.config.js -i web/styles/styles.css -o $STATIC_DIR/index.css --watch
+
+  live:esbuild:
+    deps: [tools]
+    cmds:
+      - mkdir -p $STATIC_DIR
+      - pnpm exec esbuild web/libs/datastar/index.ts --sourcemap --bundle --outdir=$STATIC_DIR --watch --format=esm
+
+  live:server:
+    deps: [tools]
+    cmds:
+      - |
+        go run github.com/air-verse/air@v1.52.3 \
+        --build.cmd "go build -tags dev -o $BIN_DIR/main" \
+        --build.bin "$BIN_DIR/main" \
+        --build.delay "20" \
+        --build.exclude_dir "node_modules,data,public,$BUILD_DIR" \
+        --build.include_ext "go" \
+        --build.stop_on_error "false" \
+        --misc.clean_on_exit true \
+        -d=false
+
+  live:reload:
+    deps: [tools]
+    cmds:
+      - |
+        go run github.com/air-verse/air@v1.52.3 \
+        --build.cmd "go run github.com/a-h/templ/cmd/templ@v0.3.819 generate --notify-proxy" \
+        --build.bin "true" \
+        --build.delay "100" \
+        --build.exclude_dir "$BUILD_DIR" \
+        --build.include_dir "$STATIC_DIR" \
+        --build.include_ext "js,css" \
+        -d=false
+
+  live:
+    deps:
+      - tools
+      - live:templ
+      - live:styles
+      - live:esbuild
+      - live:reload
+      - live:server
+
+  run:
+    deps: [build]
+    cmds:
+      - $BIN_DIR/main

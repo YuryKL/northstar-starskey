@@ -1,0 +1,36 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Node specific
+node_modules/
+npm-debug.log
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build output
+/dist/
+/build/
+*.o
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# System specific
+.DS_Store
+Thumbs.db
